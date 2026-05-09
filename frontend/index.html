@@ -19,15 +19,37 @@
 
     <div class="container">
         <!-- 1. 註冊區域 -->
-        <div id="auth-section" class="card shadow-sm p-4 mb-4">
-            <h3>註冊新帳號</h3>
-            <div class="mb-3">
-                <input type="text" id="reg-user" class="form-control" placeholder="使用者名稱">
+        <div id="auth-container" class="row mb-4">
+            <div class="col-md-6">
+                <div id="login-section" class="card shadow-sm p-4 h-100">
+                    <h3>使用者登入</h3>
+                    <div class="mb-3">
+                        <input type="text" id="login-user" class="form-control" placeholder="帳號">
+                    </div>
+                    <div class="mb-3">
+                        <input type="password" id="login-pass" class="form-control" placeholder="密碼">
+                    </div>
+                    <button id="login-btn" class="btn btn-outline-primary w-100">登入系統</button>
+                </div>
             </div>
-            <div class="mb-3">
-                <input type="password" id="reg-pass" class="form-control" placeholder="密碼">
+
+            <div class="col-md-6">
+                <div id="register-section" class="card shadow-sm p-4 h-100 border-primary">
+                    <h3>註冊新帳號</h3>
+                    <div class="mb-3">
+                        <input type="text" id="reg-user" class="form-control" placeholder="設定帳號">
+                    </div>
+                    <div class="mb-3">
+                        <input type="password" id="reg-pass" class="form-control" placeholder="設定密碼">
+                    </div>
+                    <button id="reg-btn" class="btn btn-primary w-100">立即註冊</button>
+                </div>
             </div>
-            <button id="reg-btn" class="btn btn-primary w-100">立即註冊</button>
+        </div>
+
+        <div id="user-info-section" class="alert alert-success d-none mb-4" role="alert">
+            歡迎回來，<strong id="display-username">使用者</strong>！ 
+            您的初始資金為：$<span id="display-initial-balance">0</span>
         </div>
 
         <!-- 2. 今日股市 -->
@@ -37,11 +59,13 @@
                 <thead>
                     <tr>
                         <th>股票名稱 (代碼)</th>
+                        <th>產業</th> <!-- 補上這一欄標題以對齊資料 -->
                         <th>現價 (每股)</th>
                         <th>操作 (以張為單位)</th>
                     </tr>
                 </thead>
                 <tbody id="stock-list">
+                    <!-- 由 script.js 自動產生 -->
                 </tbody>
             </table>
         </div>
@@ -53,6 +77,14 @@
                 <span class="badge bg-info text-dark">總資產估值：$<span id="total-assets">0</span></span>
             </div>
             <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>股票名稱 (代碼)</th>
+                        <th>產業</th> <th>現價 (每股)</th>
+                        <th>操作 (整股)</th>
+                    </tr>
+                </thead>
+                <tbody id="stock-list"></tbody>                
                 <thead>
                     <tr>
                         <th>股票名稱 (代碼)</th>
