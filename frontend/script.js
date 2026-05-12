@@ -127,13 +127,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // 渲染市場清單
 function renderStocks(data) {
     const tableBody = document.getElementById('stock-list');
+    if (!tableBody) return;
+    
     tableBody.innerHTML = data.map(stock => `
         <tr>
             <td>${stock.name} (${stock.stock_id})</td>
             <td><span class="badge bg-secondary">${stock.sector}</span></td>
             <td>$${stock.price.toLocaleString()}</td>
             <td>
-                <button class="btn btn-success btn-sm" onclick="buyStock('${stock.stock_id}', ${stock.price})">買入</button>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-success btn-sm" onclick="buyStock('${stock.stock_id}', ${stock.price})">
+                        買入
+                    </button>
+                    <button class="btn btn-info btn-sm text-white" onclick="showAIAnalysis('${stock.stock_id}', '${stock.name}')">
+                        AI分析
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');
@@ -205,4 +214,110 @@ function updateBalance(amount) {
     const balanceEl = document.getElementById('user-balance');
     let current = parseFloat(balanceEl.innerText.replace(/,/g, ''));
     balanceEl.innerText = (current - amount).toLocaleString();
+}
+
+// 全域變數，用於儲存 Chart 實例
+let stockChartInstance = null;
+
+// AI 分析功能入口
+function showAIAnalysis(stockId, stockName) {
+    // 1. 更新彈窗標題
+    document.getElementById('ai-stock-title').innerText = `${stockName} (${stockId})`;
+    
+    // 2. 重置 AI 報告區域為載入狀態
+    document.getElementById('ai-suggestion-box').innerHTML = `
+        <div class="placeholder-glow">
+            <span class="placeholder col-7"></span>
+            <span class="placeholder col-4"></span>
+            <span class="placeholder col-12"></span>
+        </div>
+        <p class="text-center mt-2 small text-muted">AI 正在計算兩年回測數據...</p>
+    `;
+
+    // 3. 顯示彈窗
+    const aiModal = new bootstrap.Modal(document.getElementById('aiModal'));
+    aiModal.show();
+
+    // 4. 延遲一下模擬 AI 運算，然後畫圖與寫報告
+    setTimeout(() => {
+        const currentStock = stocks.find(s => s.stock_id === stockId);
+        drawStockChart(stockName, currentStock.price);
+        updateAIReport(stockName, currentStock.price);
+    }, 800);
+}
+
+// 繪製 2 年股價曲線 (模擬數據)
+function drawStockChart(stockName, currentPrice) {
+    const ctx = document.getElementById('stockChart').getContext('2d');
+    
+    // 如果已有舊圖表，清掉
+    if (stockChartInstance) {
+        stockChartInstance.destroy();
+    }
+
+    // 模擬 24 個月的時間標籤 (2024-2026)
+    const labels = [];
+    const data = [];
+    let tempPrice = currentPrice * 0.7; // 模擬兩年前股價較低
+
+    for (let i = 24; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        labels.push(`${d.getFullYear()}/${d.getMonth() + 1}`);
+        
+        // 模擬隨機走勢 (Random Walk)
+        tempPrice += (Math.random() - 0.45) * (tempPrice * 0.1); 
+        data.push(tempPrice.toFixed(2));
+    }
+
+    // 建立新圖表
+    stockChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${stockName} 歷史收盤價 (模擬)`,
+                data: data,
+                borderColor: '#0dcaf0', // info 顏色
+                backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3, // 曲線平滑度
+                pointRadius: 0 // 隱藏點點，看起來更專業
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: false }
+            },
+            plugins: {
+                legend: { display: false } // 隱藏上方圖例
+            }
+        }
+    });
+}
+
+// 模擬生成 AI 報告內容
+function updateAIReport(name, price) {
+    const box = document.getElementById('ai-suggestion-box');
+    const trend = Math.random() > 0.5 ? "看漲" : "盤整";
+    const score = Math.floor(Math.random() * 40) + 60; // 60~100 分
+
+    box.innerHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-4 text-center border-end">
+                <h2 class="display-6 fw-bold text-success">${score}</h2>
+                <p class="text-muted small">AI 診斷總分</p>
+            </div>
+            <div class="col-md-8">
+                <ul class="mb-0">
+                    <li><strong>趨勢評估：</strong> 當前表現為 <span class="badge bg-success">${trend}</span></li>
+                    <li><strong>技術指標：</strong> 兩年線(MA720)具備強大支撐，目前股價 $${price} 處於合理區間。</li>
+                    <li><strong>投資策略：</strong> 建議「分批買進」，目標價位上調 15%。</li>
+                </ul>
+            </div>
+        </div>
+    `;
 }
