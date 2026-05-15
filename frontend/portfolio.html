@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票交易系統 - 我的庫存</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">股票交易系統</span>
+            <div class="d-flex align-items-center gap-3">
+                <a href="index.html" class="btn btn-outline-light btn-sm">今日股市</a>
+                <a href="portfolio.html" class="btn btn-secondary btn-sm">我的庫存</a>
+                <span class="text-white small">餘額：<strong class="text-warning">$<span id="user-balance">0</span></strong></span>
+                <button class="btn btn-outline-danger btn-sm" onclick="logout()">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card shadow-sm p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3>我的庫存</h3>
+                <span class="badge bg-info text-dark fs-6">總資產估值：$<span id="total-assets">0</span></span>
+            </div>
+            <table class="table table-striped align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>股票名稱 (代碼)</th>
+                        <th>持股數量 (張)</th>
+                        <th>平均成本</th>
+                        <th>市值</th>
+                        <th>損益</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="portfolio-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+    <script>initPortfolioPage();</script>
+</body>
+</html>

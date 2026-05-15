@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>股票交易系統 - 期末專案</title>
+    <title>股票交易系統 - 今日股市</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
@@ -12,45 +12,21 @@
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container">
             <span class="navbar-brand mb-0 h1">股票交易系統</span>
-            <span class="text-white">目前餘額：<strong class="text-warning">$<span id="user-balance">5,000,000</span></strong></span>
+            <div class="d-flex align-items-center gap-3">
+                <a href="index.html" class="btn btn-secondary btn-sm">今日股市</a>
+                <a href="portfolio.html" class="btn btn-outline-light btn-sm">我的庫存</a>
+                <span class="text-white small">餘額：<strong class="text-warning">$<span id="user-balance">0</span></strong></span>
+                <button class="btn btn-outline-danger btn-sm" onclick="logout()">登出</button>
+            </div>
         </div>
     </nav>
 
     <div class="container">
-        <div id="auth-container" class="row mb-4">
-            <div class="col-md-6 mb-3">
-                <div id="login-section" class="card shadow-sm p-4 h-100">
-                    <h3>使用者登入</h3>
-                    <div class="mb-3">
-                        <input type="text" id="login-user" class="form-control" placeholder="帳號">
-                    </div>
-                    <div class="mb-3">
-                        <input type="password" id="login-pass" class="form-control" placeholder="密碼">
-                    </div>
-                    <button id="login-btn" class="btn btn-outline-primary w-100">登入系統</button>
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-3">
-                <div id="register-section" class="card shadow-sm p-4 h-100 border-primary">
-                    <h3>註冊新帳號</h3>
-                    <div class="mb-3">
-                        <input type="text" id="reg-user" class="form-control" placeholder="設定帳號">
-                    </div>
-                    <div class="mb-3">
-                        <input type="password" id="reg-pass" class="form-control" placeholder="設定密碼">
-                    </div>
-                    <button id="reg-btn" class="btn btn-primary w-100">立即註冊</button>
-                </div>
-            </div>
+        <div class="alert alert-success mb-4">
+            歡迎回來，<strong id="display-username">使用者</strong>！
         </div>
 
-        <div id="user-info-section" class="alert alert-success d-none mb-4" role="alert">
-            歡迎回來，<strong id="display-username">使用者</strong>！ 
-            您的初始資金為：$<span id="display-initial-balance">0</span>
-        </div>
-
-        <div id="market-section" class="card shadow-sm p-4 mb-4">
+        <div class="card shadow-sm p-4">
             <h3>今日股市</h3>
             <table class="table table-hover mt-3 align-middle">
                 <thead class="table-light">
@@ -58,33 +34,12 @@
                         <th>股票名稱 (代碼)</th>
                         <th>產業</th>
                         <th>現價 (每股)</th>
-                        <th style="width: 180px;">操作</th> 
+                        <th style="width: 180px;">操作</th>
                     </tr>
                 </thead>
-                <tbody id="stock-list">
-                    </tbody>
+                <tbody id="stock-list"></tbody>
             </table>
         </div>
-
-        <div id="portfolio-section" class="card shadow-sm p-4 mt-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3>我的庫存</h3>
-                <span class="badge bg-info text-dark fs-6">總資產估值：$<span id="total-assets">0</span></span>
-            </div>
-            <table class="table table-striped align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>股票名稱 (代碼)</th>
-                        <th>持股數量 (張)</th>
-                        <th>平均成本</th>
-                        <th>市值 (1000股/張)</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="portfolio-list">
-                    </tbody>
-            </table>
-        </div>        
     </div>
 
     <div class="modal fade" id="aiModal" tabindex="-1" aria-labelledby="aiModalLabel" aria-hidden="true">
@@ -124,8 +79,10 @@
             </div>
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
+    <script>initMarketPage();</script>
 </body>
 </html>
