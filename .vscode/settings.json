@@ -1,0 +1,14 @@
+{
+    "liveServer.settings.ignoreFiles": [
+        "backend/**",
+        "graph/**",
+        "**/__pycache__/**",
+        "**/*.pyc",
+        "**/*.db",
+        "**/*.db-wal",
+        "**/*.db-shm",
+        "**/*.md",
+        ".git/**"
+    ],
+    "liveServer.settings.wait": 500
+}

@@ -1,4 +1,6 @@
-// ========== 股票資料 ==========
+const API = 'http://localhost:8000/api';
+
+// ========== 股票資料（備用靜態資料，API 無法連線時使用） ==========
 const STOCKS = [
     { stock_id: "2330", name: "台積電",    sector: "半導體",     price: 800  },
     { stock_id: "2454", name: "聯發科",    sector: "半導體",     price: 1000 },
@@ -31,6 +33,24 @@ const STOCKS = [
     { stock_id: "2609", name: "陽明",      sector: "航運",       price: 62   },
     { stock_id: "2615", name: "萬海",      sector: "航運",       price: 70   }
 ];
+
+// 從 API 取得的即時股票清單（各頁共用）
+let _stocks = [];
+
+// 從 _stocks 取現價，若 API 尚未載入則從靜態 STOCKS 取備用價
+function getStockPrice(stock_id) {
+    const fromApi = _stocks.find(s => s.stock_id === stock_id);
+    if (fromApi && fromApi.current_price != null) return fromApi.current_price;
+    const fallback = STOCKS.find(s => s.stock_id === stock_id);
+    return fallback ? fallback.price : 0;
+}
+
+function getStockName(stock_id) {
+    const fromApi = _stocks.find(s => s.stock_id === stock_id);
+    if (fromApi) return fromApi.name;
+    const fallback = STOCKS.find(s => s.stock_id === stock_id);
+    return fallback ? fallback.name : stock_id;
+}
 
 // ========== 共用元件（動態注入，各頁共用） ==========
 const TRADE_MODAL_HTML = `
@@ -118,7 +138,6 @@ function openTradeModal(config) {
 
     updateTradeSummary();
     bootstrap.Modal.getOrCreateInstance(document.getElementById('tradeModal')).show();
-    // 開啟後讓輸入框自動 focus
     document.getElementById('tradeModal').addEventListener('shown.bs.modal', () => {
         document.getElementById('tradeModalLots').focus();
     }, { once: true });
@@ -167,15 +186,8 @@ function getCurrentUser() {
 
 function saveCurrentUser(user) {
     localStorage.setItem('currentUser', JSON.stringify(user));
-    // 同步儲存至 per-username 記錄，重新登入時可還原餘額
-    const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-    savedUsers[user.username] = { balance: user.balance, initial_balance: user.initial_balance };
-    localStorage.setItem('savedUsers', JSON.stringify(savedUsers));
 }
 
-function requireAuth() {
-    if (!getCurrentUser()) window.location.href = 'login.html';
-}
 
 function logout() {
     localStorage.removeItem('currentUser');
@@ -205,7 +217,7 @@ function initLoginPage() {
     document.getElementById('reg-btn').addEventListener('click', handleRegister);
 }
 
-function handleLogin() {
+async function handleLogin() {
     const username = document.getElementById('login-user').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
 
@@ -214,15 +226,29 @@ function handleLogin() {
         return;
     }
 
-    // 讀取該帳號上次登出時的餘額；首次登入給予 500 萬初始資金
-    const savedUsers = JSON.parse(localStorage.getItem('savedUsers') || '{}');
-    const userData = savedUsers[username] || { balance: 5000000, initial_balance: 5000000 };
+    try {
+        const res = await fetch(`${API}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password: pass })
+        });
 
-    saveCurrentUser({ username, ...userData });
-    window.location.href = 'index.html';
+        if (!res.ok) {
+            const err = await res.json();
+            const msg = Array.isArray(err.detail) ? err.detail[0]?.msg : (err.detail || '帳號或密碼錯誤');
+            showToast(msg, 'danger');
+            return;
+        }
+
+        const data = await res.json();
+        saveCurrentUser({ user_id: data.user_id, username: data.username, balance: data.balance });
+        window.location.href = 'index.html';
+    } catch {
+        showToast('無法連線至伺服器，請確認後端是否啟動', 'danger');
+    }
 }
 
-function handleRegister() {
+async function handleRegister() {
     const user = document.getElementById('reg-user').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
 
@@ -231,9 +257,26 @@ function handleRegister() {
         return;
     }
 
-    showToast(`帳號 ${user} 註冊成功！`, 'success');
-    document.getElementById('reg-user').value = '';
-    document.getElementById('reg-pass').value = '';
+    try {
+        const res = await fetch(`${API}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            const msg = Array.isArray(err.detail) ? err.detail[0]?.msg : (err.detail || '註冊失敗');
+            showToast(msg, 'danger');
+            return;
+        }
+
+        showToast(`帳號 ${user} 註冊成功！`, 'success');
+        document.getElementById('reg-user').value = '';
+        document.getElementById('reg-pass').value = '';
+    } catch {
+        showToast('無法連線至伺服器，請確認後端是否啟動', 'danger');
+    }
 }
 
 // ========== Navbar 共用 ==========
@@ -249,11 +292,23 @@ function updateNavbar() {
 }
 
 // ========== 今日股市頁 ==========
-function initMarketPage() {
+async function initMarketPage() {
     initSharedComponents();
-    requireAuth();
+    if (!getCurrentUser()) { window.location.href = 'login.html'; return; }
     updateNavbar();
-    renderStocks(STOCKS);
+
+    try {
+        const res = await fetch(`${API}/stocks`);
+        if (res.ok) {
+            _stocks = await res.json();
+            renderStocks(_stocks);
+            return;
+        }
+    } catch {}
+
+    // API 失敗時使用靜態備用資料
+    showToast('無法取得即時股價，顯示靜態備用資料', 'warning');
+    renderStocks(STOCKS.map(s => ({ ...s, current_price: s.price })));
 }
 
 function renderStocks(data) {
@@ -263,10 +318,10 @@ function renderStocks(data) {
         <tr>
             <td>${stock.name} (${stock.stock_id})</td>
             <td><span class="badge bg-secondary">${stock.sector}</span></td>
-            <td>$${stock.price.toLocaleString()}</td>
+            <td>$${(stock.current_price ?? stock.price ?? 0).toLocaleString()}</td>
             <td>
                 <div class="btn-group" role="group">
-                    <button class="btn btn-success btn-sm" onclick="buyStock('${stock.stock_id}', ${stock.price})">買入</button>
+                    <button class="btn btn-success btn-sm" onclick="buyStock('${stock.stock_id}', ${stock.current_price ?? stock.price ?? 0})">買入</button>
                     <button class="btn btn-info btn-sm text-white" onclick="showAIAnalysis('${stock.stock_id}', '${stock.name}')">AI分析</button>
                 </div>
             </td>
@@ -275,12 +330,16 @@ function renderStocks(data) {
 }
 
 function buyStock(stock_id, price) {
+    if (!price || price <= 0) {
+        showToast('此股票目前無報價資料', 'warning');
+        return;
+    }
     const user = getCurrentUser();
-    const stockInfo = STOCKS.find(s => s.stock_id === stock_id);
+    const name = getStockName(stock_id);
 
     openTradeModal({
         type: 'buy',
-        title: `買入 ${stockInfo.name} (${stock_id})`,
+        title: `買入 ${name} (${stock_id})`,
         headerClass: 'bg-success text-white',
         confirmBtnClass: 'btn-success',
         confirmText: '確認買入',
@@ -293,40 +352,60 @@ function buyStock(stock_id, price) {
     });
 }
 
-function executeBuy(stock_id, price, numLots) {
-    const shares = numLots * 1000;
-    const total_amount = price * shares;
+async function executeBuy(stock_id, price, numLots) {
     const user = getCurrentUser();
+    const shares = numLots * 1000;
 
-    if (user.balance < total_amount) {
-        showToast('餘額不足，無法完成交易', 'danger');
-        return;
+    try {
+        const res = await fetch(`${API}/trade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.user_id, stock_id, order_type: 'buy', shares })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            showToast(err.detail || '交易失敗', 'danger');
+            return;
+        }
+
+        const data = await res.json();
+
+        // 更新餘額（以後端回傳為準）
+        user.balance = data.balance_after;
+        saveCurrentUser(user);
+        updateNavbar();
+
+        // 同步更新 localStorage 持倉（供 portfolio 頁顯示）
+        const portfolio = getPortfolio();
+        const item = portfolio.find(p => p.stock_id === stock_id);
+        if (item) {
+            const oldTotal = item.shares * item.avg_cost;
+            item.shares += shares;
+            item.avg_cost = (oldTotal + data.total_amount) / item.shares;
+        } else {
+            portfolio.push({ stock_id, name: getStockName(stock_id), shares, avg_cost: data.price });
+        }
+        savePortfolio(portfolio);
+
+        showToast(`買入 ${stock_id} ${numLots} 張，花費 $${data.total_amount.toLocaleString()}`, 'success');
+    } catch {
+        showToast('無法連線至伺服器', 'danger');
     }
-
-    const portfolio = getPortfolio();
-    const item = portfolio.find(p => p.stock_id === stock_id);
-    if (item) {
-        const oldTotal = item.shares * item.avg_cost;
-        item.shares += shares;
-        item.avg_cost = (oldTotal + total_amount) / item.shares;
-    } else {
-        const stockInfo = STOCKS.find(s => s.stock_id === stock_id);
-        portfolio.push({ stock_id, name: stockInfo.name, shares, avg_cost: price });
-    }
-    savePortfolio(portfolio);
-
-    user.balance -= total_amount;
-    saveCurrentUser(user);
-    updateNavbar();
-
-    showToast(`買入 ${stock_id} ${numLots} 張，花費 $${total_amount.toLocaleString()}`, 'success');
 }
 
 // ========== 我的庫存頁 ==========
-function initPortfolioPage() {
+async function initPortfolioPage() {
     initSharedComponents();
-    requireAuth();
+    if (!getCurrentUser()) { window.location.href = 'login.html'; return; }
     updateNavbar();
+
+    // 取得最新股價供損益計算
+    try {
+        const res = await fetch(`${API}/stocks`);
+        if (res.ok) _stocks = await res.json();
+    } catch {}
+
     renderPortfolio();
     updateTotalAssets();
 }
@@ -343,19 +422,18 @@ function renderPortfolio() {
 
     tableBody.innerHTML = portfolio.map(item => {
         const lots = item.shares / 1000;
-        const currentStock = STOCKS.find(s => s.stock_id === item.stock_id);
-        const currentPrice = currentStock ? currentStock.price : item.avg_cost;
+        const currentPrice = getStockPrice(item.stock_id);
         const marketValue = item.shares * currentPrice;
         const profitLoss = marketValue - item.shares * item.avg_cost;
         const profitClass = profitLoss >= 0 ? 'text-success fw-bold' : 'text-danger fw-bold';
-        const profitSign = profitLoss >= 0 ? '+' : '';
+        const profitSign = profitLoss >= 0 ? '+' : '-';
         return `
             <tr>
                 <td>${item.name} (${item.stock_id})</td>
                 <td>${lots} 張</td>
                 <td>$${item.avg_cost.toFixed(2)}</td>
-                <td>$${marketValue.toLocaleString()}</td>
-                <td class="${profitClass}">${profitSign}$${profitLoss.toLocaleString()}</td>
+                <td>$${Math.round(marketValue).toLocaleString()}</td>
+                <td class="${profitClass}">${profitSign}$${Math.round(Math.abs(profitLoss)).toLocaleString()}</td>
                 <td>
                     <button class="btn btn-outline-danger btn-sm" onclick="sellStock('${item.stock_id}')">賣出</button>
                 </td>
@@ -370,8 +448,7 @@ function updateTotalAssets() {
 
     let stockValue = 0;
     portfolio.forEach(item => {
-        const s = STOCKS.find(s => s.stock_id === item.stock_id);
-        stockValue += item.shares * (s ? s.price : item.avg_cost);
+        stockValue += item.shares * getStockPrice(item.stock_id);
     });
 
     const el = document.getElementById('total-assets');
@@ -383,8 +460,7 @@ function sellStock(stock_id) {
     const item = portfolio.find(p => p.stock_id === stock_id);
     if (!item) return;
 
-    const currentStock = STOCKS.find(s => s.stock_id === stock_id);
-    const currentPrice = currentStock ? currentStock.price : item.avg_cost;
+    const currentPrice = getStockPrice(stock_id);
     const maxLots = item.shares / 1000;
 
     openTradeModal({
@@ -402,13 +478,13 @@ function sellStock(stock_id) {
     });
 }
 
-function executeSell(stock_id, numLots) {
+async function executeSell(stock_id, numLots) {
     const portfolio = getPortfolio();
     const item = portfolio.find(p => p.stock_id === stock_id);
     if (!item) return;
 
-    const currentStock = STOCKS.find(s => s.stock_id === stock_id);
-    const currentPrice = currentStock ? currentStock.price : item.avg_cost;
+    const user = getCurrentUser();
+    const shares = numLots * 1000;
     const maxLots = item.shares / 1000;
 
     if (numLots > maxLots) {
@@ -416,31 +492,47 @@ function executeSell(stock_id, numLots) {
         return;
     }
 
-    const sharesToSell = numLots * 1000;
-    const proceeds = sharesToSell * currentPrice;
+    try {
+        const res = await fetch(`${API}/trade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.user_id, stock_id, order_type: 'sell', shares })
+        });
 
-    item.shares -= sharesToSell;
-    const updatedPortfolio = item.shares === 0
-        ? portfolio.filter(p => p.stock_id !== stock_id)
-        : portfolio;
-    savePortfolio(updatedPortfolio);
+        if (!res.ok) {
+            const err = await res.json();
+            showToast(err.detail || '交易失敗', 'danger');
+            return;
+        }
 
-    const user = getCurrentUser();
-    user.balance += proceeds;
-    saveCurrentUser(user);
+        const data = await res.json();
 
-    showToast(`賣出 ${item.name} ${numLots} 張，獲得 $${proceeds.toLocaleString()}`, 'success');
+        // 更新餘額（以後端回傳為準）
+        user.balance = data.balance_after;
+        saveCurrentUser(user);
 
-    updateNavbar();
-    renderPortfolio();
-    updateTotalAssets();
+        // 同步更新 localStorage 持倉
+        item.shares -= shares;
+        const updatedPortfolio = item.shares === 0
+            ? portfolio.filter(p => p.stock_id !== stock_id)
+            : portfolio;
+        savePortfolio(updatedPortfolio);
+
+        showToast(`賣出 ${item.name} ${numLots} 張，獲得 $${data.total_amount.toLocaleString()}`, 'success');
+
+        updateNavbar();
+        renderPortfolio();
+        updateTotalAssets();
+    } catch {
+        showToast('無法連線至伺服器', 'danger');
+    }
 }
 
 // ========== AI 分析 ==========
 let stockChartInstance = null;
 let currentAIStock = null;
 
-function showAIAnalysis(stockId, stockName) {
+async function showAIAnalysis(stockId, stockName) {
     currentAIStock = { stockId, stockName };
 
     document.getElementById('ai-stock-title').innerText = `${stockName} (${stockId})`;
@@ -450,23 +542,50 @@ function showAIAnalysis(stockId, stockName) {
             <span class="placeholder col-4"></span>
             <span class="placeholder col-12"></span>
         </div>
-        <p class="text-center mt-2 small text-muted">AI 正在計算兩年回測數據...</p>
+        <p class="text-center mt-2 small text-muted">AI 正在分析近期資料...</p>
     `;
 
     bootstrap.Modal.getOrCreateInstance(document.getElementById('aiModal')).show();
 
-    setTimeout(() => {
-        const stock = STOCKS.find(s => s.stock_id === stockId);
-        drawStockChart(stockName, stock.price);
-        updateAIReport(stockName, stock.price);
-    }, 800);
+    // 先取得現價畫圖
+    try {
+        const stockRes = await fetch(`${API}/stock/${stockId}`);
+        if (stockRes.ok) {
+            const stockData = await stockRes.json();
+            drawStockChart(stockName, stockData.current_price);
+        } else {
+            drawStockChart(stockName, getStockPrice(stockId));
+        }
+    } catch {
+        drawStockChart(stockName, getStockPrice(stockId));
+    }
+
+    // 呼叫 AI 分析
+    try {
+        const res = await fetch(`${API}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stock_id: stockId })
+        });
+
+        if (!res.ok) {
+            document.getElementById('ai-suggestion-box').innerHTML =
+                '<p class="text-danger text-center mt-3">AI 分析失敗，請確認 Ollama 是否執行中（<code>ollama serve</code>）</p>';
+            return;
+        }
+
+        const data = await res.json();
+        document.getElementById('ai-suggestion-box').innerHTML =
+            `<pre class="text-start small mb-0" style="white-space:pre-wrap">${data.report}</pre>`;
+    } catch {
+        document.getElementById('ai-suggestion-box').innerHTML =
+            '<p class="text-danger text-center mt-3">無法連線至伺服器</p>';
+    }
 }
 
-function generateAIReport() {
+async function generateAIReport() {
     if (!currentAIStock) return;
-    const stock = STOCKS.find(s => s.stock_id === currentAIStock.stockId);
-    drawStockChart(currentAIStock.stockName, stock.price);
-    updateAIReport(currentAIStock.stockName, stock.price);
+    await showAIAnalysis(currentAIStock.stockId, currentAIStock.stockName);
 }
 
 function drawStockChart(stockName, currentPrice) {
@@ -507,26 +626,4 @@ function drawStockChart(stockName, currentPrice) {
             plugins: { legend: { display: false } }
         }
     });
-}
-
-function updateAIReport(name, price) {
-    const box = document.getElementById('ai-suggestion-box');
-    const trend = Math.random() > 0.5 ? '看漲' : '盤整';
-    const score = Math.floor(Math.random() * 40) + 60;
-
-    box.innerHTML = `
-        <div class="row align-items-center">
-            <div class="col-md-4 text-center border-end">
-                <h2 class="display-6 fw-bold text-success">${score}</h2>
-                <p class="text-muted small">AI 診斷總分</p>
-            </div>
-            <div class="col-md-8">
-                <ul class="mb-0">
-                    <li><strong>趨勢評估：</strong> 當前表現為 <span class="badge bg-success">${trend}</span></li>
-                    <li><strong>技術指標：</strong> 兩年線(MA720)具備強大支撐，目前股價 $${price} 處於合理區間。</li>
-                    <li><strong>投資策略：</strong> 建議「分批買進」，目標價位上調 15%。</li>
-                </ul>
-            </div>
-        </div>
-    `;
 }
