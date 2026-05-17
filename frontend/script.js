@@ -183,11 +183,15 @@ function logout() {
 }
 
 function getPortfolio() {
-    return JSON.parse(localStorage.getItem('myPortfolio') || '[]');
+    const user = getCurrentUser();
+    const key = user ? `portfolio_${user.username}` : 'myPortfolio';
+    return JSON.parse(localStorage.getItem(key) || '[]');
 }
 
 function savePortfolio(portfolio) {
-    localStorage.setItem('myPortfolio', JSON.stringify(portfolio));
+    const user = getCurrentUser();
+    const key = user ? `portfolio_${user.username}` : 'myPortfolio';
+    localStorage.setItem(key, JSON.stringify(portfolio));
 }
 
 // ========== 登入頁 ==========
