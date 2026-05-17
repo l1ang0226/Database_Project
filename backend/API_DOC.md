@@ -1,6 +1,12 @@
 # 📡 API 文件
+```
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
 
+```
 > Base URL：`http://127.0.0.1:8000`
+> 查看 API 的Doc： `http://127.0.0.1:8000/docs`
 > 所有 Request / Response 格式均為 `application/json`
 
 ---
